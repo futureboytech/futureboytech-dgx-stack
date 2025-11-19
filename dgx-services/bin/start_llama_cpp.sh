@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 set -e
-MODEL="/opt/models/Kimi-K2-Thinking-80B.gguf"
+# Expects model at /opt/models/Kimi-K2-Thinking-80B.gguf on host
+MODEL_FILE="Kimi-K2-Thinking-80B.gguf"
 PORT=8080
-exec llama.cpp-server -m $MODEL -c 8192 -ngl 99 --port $PORT
+
+exec docker run --rm --gpus all \
+  -p $PORT:8080 \
+  -v /opt/models:/models \
+  ghcr.io/ggerganov/llama.cpp:server-cuda \
+  -m /models/$MODEL_FILE -c 8192 -ngl 99 --host 0.0.0.0 --port 8080
