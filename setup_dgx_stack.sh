@@ -17,10 +17,10 @@ if [ "$TARGET" == "mac" ]; then
   echo "🍎 Configuring for macOS..."
   # Add alias to zshrc if not present
   if ! grep -q "alias dgx-connect" ~/.zshrc; then
-    echo "alias dgx-connect='ssh -L 8000:localhost:8000 -L 30000:localhost:30000 -L 8080:localhost:8080 -L 11434:localhost:11434 dgx'" >> ~/.zshrc
+    echo "alias dgx-connect='ssh -L 18000:localhost:8000 -L 33000:localhost:30000 -L 18080:localhost:8080 -L 11435:localhost:11434 dgx'" >> ~/.zshrc
     echo "✅ Added dgx-connect alias to ~/.zshrc"
   else
-    echo "ℹ️ dgx-connect alias already exists"
+    echo "ℹ️ dgx-connect alias already exists. Please verify ports manually if needed."
   fi
 
 elif [ "$TARGET" == "omarchy" ]; then
@@ -30,10 +30,10 @@ elif [ "$TARGET" == "omarchy" ]; then
   [ -f ~/.zshrc ] && RC_FILE=~/.zshrc
   
   if ! grep -q "alias dgx-connect" "$RC_FILE"; then
-    echo "alias dgx-connect='ssh -L 8000:localhost:8000 -L 30000:localhost:30000 -L 8080:localhost:8080 -L 11434:localhost:11434 dgx'" >> "$RC_FILE"
+    echo "alias dgx-connect='ssh -L 18000:localhost:8000 -L 33000:localhost:30000 -L 18080:localhost:8080 -L 11435:localhost:11434 dgx'" >> "$RC_FILE"
     echo "✅ Added dgx-connect alias to $RC_FILE"
   else
-    echo "ℹ️ dgx-connect alias already exists"
+    echo "ℹ️ dgx-connect alias already exists. Please verify ports manually if needed."
   fi
 
 else
