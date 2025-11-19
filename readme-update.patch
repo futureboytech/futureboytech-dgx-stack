@@ -1,0 +1,181 @@
+diff --git a/README.md b/README.md
+index 1111111..2222222 100644
+--- a/README.md
++++ b/README.md
+@@ -1 +1,250 @@
+- Full long-form README placeholder...
++# futureboytech-dgx-stack
++
++![MIT](https://img.shields.io/badge/License-MIT-green)
++![DGX Tested](https://img.shields.io/badge/NVIDIA-DGX%20Tested-black?logo=nvidia)
++![OpenCode Enabled](https://img.shields.io/badge/OpenCode-Enabled-blue)
++![GPU Accelerated](https://img.shields.io/badge/GPU-Accelerated-orange?logo=nvidia)
++![CI](https://github.com/futureboytech/futureboytech-dgx-stack/actions/workflows/ci.yml/badge.svg)
++![Release](https://github.com/futureboytech/futureboytech-dgx-stack/actions/workflows/release.yml/badge.svg)
++
++---
++
++# 📘 Overview
++This repository is a **full production-ready DGX Spark LLM orchestration stack**, including:
++
++- vLLM → *DeepSeek-R1-Distill-Qwen-14B*
++- SGLang → *Qwen2.5-14B-Instruct*
++- llama.cpp → *Kimi-K2-Thinking-80B.gguf*
++- Ollama → *llama3.1 (GPU)*  
++- OpenCode router + custom tools  
++- Tailscale secure mesh networking  
++- systemd GPU service management  
++- CI/CD workflows  
++- Automated GitHub Release system  
++- Antigravity-compatible HTTPS Gateway  
++
++This stack turns your DGX Spark into a **private AI cloud** with high-throughput inference accessible from:
++
++- macOS  
++- Omarchy / Arch Linux  
++- Cloud VMs  
++- Google Antigravity  
++- OpenCode TUI / CLI / IDE  
++
++---
++
++# 🌐 Architecture
++```mermaid
++flowchart LR
++  subgraph Client["Mac / Omarchy / Cloud Workstation"]
++    OC[OpenCode IDE]
++    TS1[Tailscale Client]
++  end
++
++  subgraph DGX["DGX Spark"]
++    TS2[Tailscale Daemon]
++
++    subgraph Runtime["LLM Runtime Layer (systemd)"]
++      VLLM[vLLM<br/>DeepSeek R1 Distill 14B]
++      SGL[SGLang<br/>Qwen2.5 14B Instruct]
++      LCPP[llama.cpp<br/>Kimi-K2-Thinking-80B]
++      OL[Ollama<br/>llama3.1 GPU]
++    end
++
++    subgraph Gateway["HTTPS API Gateway"]
++      NGINX[Nginx+TLS]
++      AUTH[API Key Auth]
++      OAI[OpenAI-Compatible Wrapper]
++    end
++  end
++
++  OC --> TS1 --> TS2 --> Gateway --> Runtime
++```
++
++---
++
++# 🔀 Router Logic (OpenCode)
++```mermaid
++flowchart TD
++  A[start] --> B{vLLM healthy?}
++  B -->|yes| use_vllm
++  B -->|no| C{SGLang healthy?}
++  C -->|yes| use_sglang
++  C -->|no| D{Ollama healthy?}
++  D -->|yes| use_ollama
++  D -->|no| E{llama.cpp healthy?}
++  E -->|yes| use_lcpp
++  E -->|no| F[Error: No runtimes available]
++```
++
++---
++
++# 🛠 Systemd Startup Chain
++```
++network-online.target
++  ├── vllm.service
++  ├── sglang.service
++  ├── llama_cpp.service
++  └── ollama.service
++```
++
++---
++
++# 🚀 Installation Guide
++
++## 1. Setup DGX Spark
++```
++./setup_dgx_stack.sh dgx
++```
++
++## 2. Setup macOS or Omarchy client
++```
++./setup_dgx_stack.sh mac
++./setup_dgx_stack.sh omarchy
++```
++
++## 3. Update SSH config
++Replace the placeholder Tailscale IP with:
++```
++tailscale ip
++```
++
++## 4. Connect & forward
++```
++dgx-connect
++curl http://localhost:8000/v1/models
++```
++
++---
++
++# 🧠 LLM Runtime Summary
++- **vLLM** — DeepSeek R1 Distill Qwen-14B  
++- **SGLang** — Qwen2.5 14B Instruct  
++- **llama.cpp** — Kimi-K2-Thinking-80B  
++- **Ollama** — llama3.1  
++
++---
++
++# 🧩 OpenCode Integration
++Example:
++```
++@router {
++  "body": {
++    "model": "deepseek-r1",
++    "messages": [{"role":"user","content":"Hello DGX"}]
++  }
++}
++```
++
++---
++
++# 📊 GPU Dashboard
++```
++./scripts/gpu-dashboard.sh
++```
++
++---
++
++# 🧪 CI/CD
++Runs:
++- ShellCheck  
++- Prettier  
++- yamllint  
++
++Release workflow auto-packages tagged releases.
++
++---
++
++# 🔐 Security
++- All remote connections encrypted with Tailscale WireGuard  
++- Nginx + TLS + API key for Antigravity  
++- DGX access restricted via ACL tags  
++
++---
++
++# 🔮 Roadmap
++- Multi-node routing  
++- Distributed speculative decoding  
++- Advanced DGX telemetry  
++- OpenAI-compatible multi-model switching  
++
++---
++
++# 📜 License
++MIT License.  
++
