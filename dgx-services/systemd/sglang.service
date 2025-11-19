@@ -1,0 +1,16 @@
+[Unit]
+Description=SGLang Service (Qwen2.5 14B Instruct)
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/opt/dgx_stack/bin/start_sglang.sh
+Restart=always
+RestartSec=5
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+[Install]
+WantedBy=multi-user.target
