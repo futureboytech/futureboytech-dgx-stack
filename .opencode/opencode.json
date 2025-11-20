@@ -1,6 +1,6 @@
 {
-  "tools": [
-    "./tool/vllm.ts",
-    "./tool/router.ts"
-  ]
+  "tools": {
+    "router": "./tool/router.ts",
+    "vllm": "./tool/vllm.ts"
+  }
 }
