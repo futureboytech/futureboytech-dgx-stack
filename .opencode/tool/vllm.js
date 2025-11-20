@@ -1,10 +1,10 @@
 // ------------------------------------------------------------
-// vllm.ts – Direct vLLM backend access (Node.js compatible)
+// vllm.js – Direct vLLM backend access (Node.js compatible)
 // ------------------------------------------------------------
 
-import * as http from 'http';
+const http = require('http');
 
-export const metadata = {
+exports.metadata = {
     name: "vllm",
     description: "Query the DGX vLLM backend directly (DeepSeek-R1-Distill-Qwen-14B)",
     parameters: {
@@ -23,13 +23,9 @@ export const metadata = {
     },
 };
 
-export async function run({
-    prompt,
-    temperature = 0.7
-}: {
-    prompt: string;
-    temperature?: number;
-}): Promise<string> {
+exports.run = async function ({ prompt, temperature = 0.7 }) {
+    console.log("[DEBUG vLLM] Starting with prompt:", prompt.substring(0, 50) + "...");
+
     const payload = JSON.stringify({
         model: "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
         messages: [{ role: "user", content: prompt }],
@@ -48,6 +44,7 @@ export async function run({
             },
         };
 
+        console.log("[DEBUG vLLM] Making HTTP request to localhost:18000");
         const req = http.request(options, (res) => {
             let data = '';
 
@@ -56,6 +53,8 @@ export async function run({
             });
 
             res.on('end', () => {
+                console.log(`[DEBUG vLLM] Response status: ${res.statusCode}`);
+
                 if (res.statusCode !== 200) {
                     reject(new Error(`vLLM Error (${res.statusCode}): ${data}`));
                     return;
@@ -68,6 +67,7 @@ export async function run({
                         reject(new Error("Unexpected response shape from vLLM."));
                         return;
                     }
+                    console.log("[DEBUG vLLM] Successfully got response");
                     resolve(content);
                 } catch (err) {
                     reject(new Error(`Failed to parse response: ${err}`));
@@ -76,10 +76,12 @@ export async function run({
         });
 
         req.on('error', (err) => {
+            console.error("[DEBUG vLLM] Connection error:", err);
             reject(new Error(`Connection failed: ${err.message}. Is dgx-connect running?`));
         });
 
         req.setTimeout(10000, () => {
+            console.error("[DEBUG vLLM] Timeout after 10s");
             req.destroy();
             reject(new Error("Request timeout. Is vLLM responding?"));
         });
@@ -87,4 +89,4 @@ export async function run({
         req.write(payload);
         req.end();
     });
-}
+};
