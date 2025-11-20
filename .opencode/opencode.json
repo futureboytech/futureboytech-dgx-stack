@@ -1,6 +1,0 @@
-{
-  "tools": {
-    "router": "./tool/router.ts",
-    "vllm": "./tool/vllm.ts"
-  }
-}
