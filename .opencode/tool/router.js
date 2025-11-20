@@ -2,9 +2,9 @@
 // router.ts – Smart DGX backend router (Node.js compatible)
 // ------------------------------------------------------------
 
-import * as http from 'http';
+const http = require('http');
 
-export const metadata = {
+exports.metadata = {
     name: "router",
     description: "Smart router that sends queries to the best available DGX backend",
     parameters: {
@@ -24,10 +24,7 @@ export const metadata = {
     },
 };
 
-const BACKENDS: Record<
-    string,
-    { host: string; port: number; path: string; model: string; defaultTemperature?: number }
-> = {
+const BACKENDS = {
     reasoning: {
         host: "localhost",
         port: 18000,
@@ -51,22 +48,20 @@ const BACKENDS: Record<
     },
 };
 
-export async function run({
-    prompt,
-    model_preference = "reasoning",
-}: {
-    prompt: string;
-    model_preference?: keyof typeof BACKENDS;
-}): Promise<string> {
+exports.run = async function ({ prompt, model_preference = "reasoning" }) {
+    console.log("[DEBUG] Router starting with prompt:", prompt);
+
     if (!prompt?.trim()) {
         throw new Error("Prompt must be a non-empty string.");
     }
 
-    const backend = BACKENDS[model_preference] ?? BACKENDS["reasoning"];
+    const backend = BACKENDS[model_preference] || BACKENDS["reasoning"];
+    console.log(`[DEBUG] Routing to ${backend.host}:${backend.port}${backend.path}`);
+
     const payload = JSON.stringify({
         model: backend.model,
         messages: [{ role: "user", content: prompt }],
-        temperature: backend.defaultTemperature ?? 0.7,
+        temperature: backend.defaultTemperature || 0.7,
     });
 
     return new Promise((resolve, reject) => {
@@ -81,6 +76,7 @@ export async function run({
             },
         };
 
+        console.log("[DEBUG] Making HTTP request...");
         const req = http.request(options, (res) => {
             let data = '';
 
@@ -89,6 +85,8 @@ export async function run({
             });
 
             res.on('end', () => {
+                console.log(`[DEBUG] Received response with status ${res.statusCode}`);
+
                 if (res.statusCode !== 200) {
                     reject(new Error(`DGX request failed (${res.statusCode}): ${data}`));
                     return;
@@ -101,6 +99,7 @@ export async function run({
                         reject(new Error("Unexpected response shape from backend."));
                         return;
                     }
+                    console.log("[DEBUG] Successfully parsed response");
                     resolve(content);
                 } catch (err) {
                     reject(new Error(`Failed to parse response: ${err}`));
@@ -109,10 +108,12 @@ export async function run({
         });
 
         req.on('error', (err) => {
-            reject(new Error(`Connection failed: ${err.message}. Is the SSH tunnel running?`));
+            console.error("[DEBUG] Connection error:", err);
+            reject(new Error(`Connection failed: ${err.message}. Is the SSH tunnel running? Try: dgx-connect`));
         });
 
         req.setTimeout(10000, () => {
+            console.error("[DEBUG] Request timeout after 10s");
             req.destroy();
             reject(new Error("Request timeout (10s). Is the DGX responding?"));
         });
@@ -120,4 +121,4 @@ export async function run({
         req.write(payload);
         req.end();
     });
-}
+};
