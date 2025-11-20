@@ -1,6 +1,8 @@
 // ------------------------------------------------------------
-// router.ts – Smart DGX backend router
+// router.ts – Smart DGX backend router (Node.js compatible)
 // ------------------------------------------------------------
+
+import * as http from 'http';
 
 export const metadata = {
     name: "router",
@@ -22,102 +24,100 @@ export const metadata = {
     },
 };
 
-/**
- * Configuration for each backend.  Add new entries here when you spin up
- * another service (e.g. Ollama, SGLang, etc.).
- */
 const BACKENDS: Record<
     string,
-    { url: string; model: string; defaultTemperature?: number }
+    { host: string; port: number; path: string; model: string; defaultTemperature?: number }
 > = {
-    // vLLM – currently exposed via SSH tunnel on port 18000
     reasoning: {
-        url: "http://localhost:18000/v1/chat/completions",
+        host: "localhost",
+        port: 18000,
+        path: "/v1/chat/completions",
         model: "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
         defaultTemperature: 0.7,
     },
-    // SGLang – placeholder values (replace with real ones)
     coding: {
-        url: "http://localhost:30000/v1/chat/completions",
+        host: "localhost",
+        port: 33000,
+        path: "/v1/chat/completions",
         model: "codellama/CodeLlama-34B-Instruct",
         defaultTemperature: 0.2,
     },
-    // Ollama – placeholder values (replace with real ones)
     chat: {
-        url: "http://localhost:11434/api/chat",
+        host: "localhost",
+        port: 11435,
+        path: "/api/chat",
         model: "llama3.1:8b",
         defaultTemperature: 0.7,
     },
 };
 
-/**
- * Simple validation helper.
- */
-function validatePrompt(prompt: string): void {
-    if (!prompt?.trim()) {
-        throw new Error("Prompt must be a non‑empty string.");
-    }
-    // Optional: enforce max length (e.g., 2048 tokens)
-    const MAX_CHARS = 4096;
-    if (prompt.length > MAX_CHARS) {
-        throw new Error(`Prompt exceeds ${MAX_CHARS} characters limit.`);
-    }
-}
-
-/**
- * Core router implementation.
- */
 export async function run({
     prompt,
-    model_preference = "chat",
+    model_preference = "reasoning",
 }: {
     prompt: string;
     model_preference?: keyof typeof BACKENDS;
 }): Promise<string> {
-    // ---- Input validation -------------------------------------------------
-    validatePrompt(prompt);
+    if (!prompt?.trim()) {
+        throw new Error("Prompt must be a non-empty string.");
+    }
 
-    // ---- Choose backend ----------------------------------------------------
-    const backend = BACKENDS[model_preference] ?? BACKENDS["chat"];
-    console.log(
-        `Routing request [${model_preference}] → ${backend.url} (model=${backend.model})`
-    );
-
-    // ---- Build request payload ---------------------------------------------
-    const payload = {
+    const backend = BACKENDS[model_preference] ?? BACKENDS["reasoning"];
+    const payload = JSON.stringify({
         model: backend.model,
         messages: [{ role: "user", content: prompt }],
         temperature: backend.defaultTemperature ?? 0.7,
-    };
+    });
 
-    // ---- Optional timeout (10 s) -------------------------------------------
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
+    return new Promise((resolve, reject) => {
+        const options = {
+            hostname: backend.host,
+            port: backend.port,
+            path: backend.path,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload),
+            },
+        };
 
-    try {
-        const response = await fetch(backend.url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-            signal: controller.signal,
+        const req = http.request(options, (res) => {
+            let data = '';
+
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
+
+            res.on('end', () => {
+                if (res.statusCode !== 200) {
+                    reject(new Error(`DGX request failed (${res.statusCode}): ${data}`));
+                    return;
+                }
+
+                try {
+                    const parsed = JSON.parse(data);
+                    const content = parsed?.choices?.[0]?.message?.content;
+                    if (typeof content !== "string") {
+                        reject(new Error("Unexpected response shape from backend."));
+                        return;
+                    }
+                    resolve(content);
+                } catch (err) {
+                    reject(new Error(`Failed to parse response: ${err}`));
+                }
+            });
         });
 
-        if (!response.ok) {
-            // Propagate a richer error object
-            const errText = await response.text().catch(() => "");
-            throw new Error(
-                `DGX request failed (${response.status} ${response.statusText}): ${errText}`
-            );
-        }
+        req.on('error', (err) => {
+            reject(new Error(`Connection failed: ${err.message}. Is the SSH tunnel running?`));
+        });
 
-        const data = await response.json();
-        // Assume OpenAI‑compatible response shape
-        const content = data?.choices?.[0]?.message?.content;
-        if (typeof content !== "string") {
-            throw new Error("Unexpected response shape from backend.");
-        }
-        return content;
-    } finally {
-        clearTimeout(timeout);
-    }
+        req.setTimeout(10000, () => {
+            req.destroy();
+            reject(new Error("Request timeout (10s). Is the DGX responding?"));
+        });
+
+        req.write(payload);
+        req.end();
+    });
 }

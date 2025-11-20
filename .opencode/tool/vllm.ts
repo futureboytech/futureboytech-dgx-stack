@@ -1,3 +1,8 @@
+// ------------------------------------------------------------
+// vllm.ts – Direct vLLM backend access (Node.js compatible)
+// ------------------------------------------------------------
+
+import * as http from 'http';
 
 export const metadata = {
     name: "vllm",
@@ -18,24 +23,68 @@ export const metadata = {
     },
 };
 
-export async function run({ prompt, temperature = 0.7 }) {
-    // Use the tunnel port 18000
-    const response = await fetch("http://localhost:18000/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-            model: "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
-            messages: [{ role: "user", content: prompt }],
-            temperature: temperature,
-        }),
+export async function run({
+    prompt,
+    temperature = 0.7
+}: {
+    prompt: string;
+    temperature?: number;
+}): Promise<string> {
+    const payload = JSON.stringify({
+        model: "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+        messages: [{ role: "user", content: prompt }],
+        temperature: temperature,
     });
 
-    if (!response.ok) {
-        throw new Error(`vLLM Error: ${response.statusText}`);
-    }
+    return new Promise((resolve, reject) => {
+        const options = {
+            hostname: 'localhost',
+            port: 18000,
+            path: '/v1/chat/completions',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload),
+            },
+        };
 
-    const data = await response.json();
-    return data.choices[0].message.content;
+        const req = http.request(options, (res) => {
+            let data = '';
+
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
+
+            res.on('end', () => {
+                if (res.statusCode !== 200) {
+                    reject(new Error(`vLLM Error (${res.statusCode}): ${data}`));
+                    return;
+                }
+
+                try {
+                    const parsed = JSON.parse(data);
+                    const content = parsed?.choices?.[0]?.message?.content;
+                    if (typeof content !== "string") {
+                        reject(new Error("Unexpected response shape from vLLM."));
+                        return;
+                    }
+                    resolve(content);
+                } catch (err) {
+                    reject(new Error(`Failed to parse response: ${err}`));
+                }
+            });
+        });
+
+        req.on('error', (err) => {
+            reject(new Error(`Connection failed: ${err.message}. Is dgx-connect running?`));
+        });
+
+        req.setTimeout(10000, () => {
+            req.destroy();
+            reject(new Error("Request timeout. Is vLLM responding?"));
+        });
+
+        req.write(payload);
+        req.end();
+    });
 }
