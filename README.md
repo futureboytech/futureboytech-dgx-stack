@@ -156,6 +156,8 @@ curl http://localhost:30000/health     # SGLang
 - llama.cpp: 8080
 - Ollama: 11434
 
+**Editor integration:** See `ZED_LOCAL_LLM.md` for wiring Zed to local/forwarded DGX endpoints (OpenAI-compatible).
+
 ---
 
 ## 🧩 OpenCode Integration
